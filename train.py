@@ -11,6 +11,9 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+import numpy as np
+
+
 
 import densenet as dn
 
@@ -49,6 +52,25 @@ parser.add_argument('--name', default='DenseNet_BC_100_12', type=str,
                     help='name of experiment')
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
+parser.add_argument('--sdr', default=False,
+                    help='Use Stochastic Delta Rule', action='store_true')
+parser.add_argument('--beta', default=5, type=float,
+                    help='SDR beta value (default: 5)')
+parser.add_argument('--zeta', default=0.99, type=float,
+                    help='SDR zeta value (default: 0.99)')
+parser.add_argument('--zeta-drop', default=1, type=int,
+                    help='control rate of zeta drop (default 1)')
+parser.add_argument('--dataset', '-ds', type=str, choices=['C10', 'C100', 'ImageNet'],
+                    default='C10',
+                    help='What dataset should be used')
+parser.add_argument('--parallel', default=False,
+                    help='Use parallel GPUs', action='store_true')
+parser.add_argument('--logfiles', default=False,
+                    help='Write verbose .npy files for weights/SDs', action='store_true')
+parser.add_argument('--data', default='/data4/ImageNet/', type=str,
+                    help='location of ImageNet files')
+
+
 parser.set_defaults(bottleneck=True)
 parser.set_defaults(augment=True)
 
@@ -81,26 +103,123 @@ def main():
         ])
 
     kwargs = {'num_workers': 1, 'pin_memory': True}
-    train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=True, download=True,
-                         transform=transform_train),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
-    val_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=False, transform=transform_test),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    # create model
-    model = dn.DenseNet3(args.layers, 10, args.growth, reduction=args.reduce,
-                         bottleneck=args.bottleneck, dropRate=args.droprate)
+    droprate = args.droprate
+
+    if args.sdr:
+        droprate = 0.0
+
+    if args.dataset == 'C10':
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=True, download=True,
+                             transform=transform_train),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=False, transform=transform_test),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+
+        model = dn.DenseNet3(args.layers, 10, args.growth, reduction=args.reduce,
+                             bottleneck=args.bottleneck, dropRate=droprate,
+                            use_sdr=args.sdr, beta=args.beta, zeta=args.zeta,
+                            zeta_drop = args.zeta_drop)
+    elif args.dataset == 'C100':
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100('../data', train=True, download=True,
+                             transform=transform_train),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100('../data', train=False, transform=transform_test),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+    
+        model = dn.DenseNet3(args.layers, 100, args.growth, reduction=args.reduce,
+                             bottleneck=args.bottleneck, dropRate=droprate,
+                            use_sdr=args.sdr, beta=args.beta, zeta=args.zeta,
+                            zeta_drop = args.zeta_drop)
+    elif args.dataset == 'ImageNet':
+        #from imagenet_seq.data.Loader import ImagenetLoader
+        #import imagenet_seq
+
+        #train_loader = imagenet_seq.data.Loader('train', batch_size=args.batch_size,
+        #    num_workers=1)
+
+        #val_loader = imagenet_seq.data.Loader('val', batch_size=args.batch_size,
+        #    num_workers=1)
+
+    # Data loading code
+        traindir = os.path.join(args.data, 'train')
+        valdir = os.path.join(args.data, 'val')
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+    
+
+        if args.augment:
+            train_dataset = datasets.ImageFolder(
+                traindir,
+                transforms.Compose([
+                    transforms.RandomResizedCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    normalize,
+                ]))
+        else:
+            train_dataset = transforms.Compose([
+                transforms.ToTensor(),
+                normalize,
+                ])
+    
+    
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=2, pin_memory=True, sampler=None)
+    
+        val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(valdir, transforms.Compose([
+                transforms.Resize(224),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=2, pin_memory=True)
+
+
+        model = dn.DenseNet3(args.layers, 1000, args.growth, reduction=args.reduce,
+                    bottleneck=args.bottleneck, dropRate=droprate,
+                    use_sdr=args.sdr, beta=args.beta, zeta=args.zeta,
+                    zeta_drop = args.zeta_drop)
+
+    
     
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
-    
+
+
     # for training on multiple GPUs. 
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
-    # model = torch.nn.DataParallel(model).cuda()
-    model = model.cuda()
+    if args.parallel:
+        #model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
+        model = torch.nn.DataParallel(model).cuda()
+
+    else:
+        model = model.cuda()
+
+    if args.sdr:
+        model.sdr = args.sdr
+        model.beta = args.beta
+        model.zeta = args.zeta
+        model.zeta_orig = args.zeta
+        model.zeta_drop = args.zeta_drop
+        model.data_swap = []
+        model.sds = []
+
+    if args.logfiles:
+        rundir = "runs/%s"%(args.name)
+
+        init_weights = [np.asarray(p.data) for p in model.parameters()]
+        fname1 = rundir + "/init_weights.npy"
+        np.save(fname1, init_weights)
+
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -123,12 +242,15 @@ def main():
                                 momentum=args.momentum,
                                 nesterov=True,
                                 weight_decay=args.weight_decay)
+    print("Training...")
 
     for epoch in range(args.start_epoch, args.epochs):
+        
         adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch)
+        print("zeta value", str(model.zeta))
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch)
@@ -141,6 +263,23 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
         }, is_best)
+
+
+
+        if model.sdr and (epoch + 1) % model.zeta_drop == 0:
+            #parabolic annealing
+            if args.layers < 200:
+                model.zeta = model.zeta_orig ** ((epoch + 1) // model.zeta_drop)
+
+            #exponential annealing
+            #larger networks benefit from longer exposure to noise
+            else:
+                lambda_ = 0.1
+                model.zeta = model.zeta_orig * np.power(np.e, -(lambda_ * epoch))
+        #for p in model.parameters():
+        #    print(p)
+
+
     print('Best accuracy: ', best_prec1)
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -148,6 +287,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+
+    if args.tensorboard:
+        log_value('zeta', model.zeta, epoch)
 
     # switch to train mode
     model.train()
@@ -159,18 +301,99 @@ def train(train_loader, model, criterion, optimizer, epoch):
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
+        if model.sdr:
+            if i == 0 and epoch == 0:
+            
+                for p in model.parameters():
+
+                    r1 = 0.0
+                    r2 = np.sqrt(2. / np.product(p.shape)) * 0.5
+
+                    #normal dist
+                    res = torch.randn(p.data.shape)
+                    mx = torch.max(res)
+                    mn = torch.min(res)
+
+                    #shift distribution so it's between r1 and r1 with
+                    #mean (r2-r1)/2
+                    init = ((r2 - r1) / (mx - mn)).float() * (res - mn)
+                    init.cuda()
+                    model.sds.append(init)
+                #save out initial SD distribution
+                if args.logfiles:
+                    rundir = "runs/%s"%(args.name)
+                    init_sds = [np.asarray(p) for p in model.sds]
+                    fname2 = rundir + "/init_sds.npy"
+                    np.save(fname2, init_sds)
+
+            elif i == (args.batch_size // 2) - 1 or i == args.batch_size - 1:
+
+                '''
+                split parameters into two blocks, with the earlier
+                layers receiving 90% of the zeta exposure that the
+                lower layers receive
+                '''
+                length = len(list(model.parameters()))
+                n_blocks = 2
+                #zeta_ = model.zeta
+                ratio = 0.9
+                if n_blocks > 1:
+                    zeta_ = ratio * model.zeta
+                else:
+                    zeta_ = model.zeta
+                #anneal zeta based on the depth of the network
+                #divided into '''n_blocks''' blocks for this purpose
+                for k, p in enumerate(model.parameters()):
+                    if n_blocks > 1:
+                        if (k + 1) % ((length + 1) // n_blocks) == 0:
+                            '''
+                            uncomment for low zeta in ealier layers and
+                            high zeta in end layers
+                            '''
+                            zeta_ += (model.zeta * (1 - ratio)) / (n_blocks - 1)
+
+                            '''
+                            uncomment for high zeta in ealier layers but
+                            lower zeta in end layers
+                            '''
+                            #zeta_ = zeta_ - (model.zeta/n_blocks)
+
+                    #update the standard deviations
+                    model.sds[k] = zeta_ * (torch.abs(model.beta *
+                        p.grad) + model.sds[k].cuda())
+
+        '''
+        reset swap list that holds old swap values and sample new
+        Wij* values for forward pass
+        '''
+        model.data_swap = []
+        
+        if model.sdr:
+            for k, p in enumerate(model.parameters()):
+                model.data_swap.append(p.data)
+    
+                p.data = torch.distributions.Normal(p.data, model.sds[k].cuda()).sample()
         # compute output
         output = model(input_var)
+
+        '''
+        replace sampled Wij* values with original mu values for
+        gradient/loss calculations
+        '''
+        for p, s  in zip(model.parameters(), model.data_swap):
+            p.data = s
+    
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
+        top1.update(prec1.item(), input.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
+
         optimizer.step()
 
         # measure elapsed time
@@ -181,13 +404,30 @@ def train(train_loader, model, criterion, optimizer, epoch):
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                  'Top1 Prec {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1))
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
         log_value('train_acc', top1.avg, epoch)
+
+
+    #verbose logging
+    if model.sdr and args.logfiles and (((epoch + 1) % 1 == 0) or (epoch in [0,99])):
+        rundir = "runs/%s"%(args.name)
+        sampled = [np.asarray(p.data) for p in model.parameters()]
+        fname1 = rundir + "/sampled_" + str(epoch) + ".npy"
+        np.save(fname1, sampled)
+        means = [np.asarray(p) for p in model.data_swap]
+        fname2 = rundir + "/means_" + str(epoch) + ".npy"
+        np.save(fname2, means)
+        means = [np.asarray(p) for p in model.sds]
+        fname3 = rundir + "/sds_" + str(epoch) + ".npy"
+        np.save(fname3, means)
+        grads = [np.asarray(p.grad) for p in model.parameters()]
+        fname4 = rundir + "/grads_" + str(epoch) + ".npy"
+        np.save(fname4, grads)
 
 def validate(val_loader, model, criterion, epoch):
     """Perform validation on the validation set"""
@@ -199,32 +439,33 @@ def validate(val_loader, model, criterion, epoch):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
-        input = input.cuda()
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
-
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
-
-        # measure accuracy and record loss
-        prec1 = accuracy(output.data, target, topk=(1,))[0]
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses,
-                      top1=top1))
+    with torch.no_grad():
+        for i, (input, target) in enumerate(val_loader):
+            target = target.cuda(async=True)
+            input = input.cuda()
+            input_var = torch.autograd.Variable(input)
+            target_var = torch.autograd.Variable(target)
+    
+            # compute output
+            output = model(input_var)
+            loss = criterion(output, target_var)
+    
+            # measure accuracy and record loss
+            prec1 = accuracy(output.data, target, topk=(1,))[0]
+            losses.update(loss.item(), input.size(0))
+            top1.update(prec1.item(), input.size(0))
+    
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+    
+            if i % args.print_freq == 0:
+                print('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Top1 Prec: {top1.val:.3f} ({top1.avg:.3f})'.format(
+                          i, len(val_loader), batch_time=batch_time, loss=losses,
+                          top1=top1))
 
     print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
     # log to TensorBoard
@@ -263,8 +504,13 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 after 150 and 225 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 150)) * (0.1 ** (epoch // 225))
+    """
+    Sets the learning rate to the initial LR decayed by 10 after half
+    of training and 75% of training
+    """
+    #et LR to 0.1*LR at 50% of the way through training and 0.1*0.1*LR
+    # at 
+    lr = args.lr * (0.1 ** (epoch // (args.epochs // 2) )) * (0.1 ** int(epoch // (args.epochs // (4/3))))
     # log to TensorBoard
     if args.tensorboard:
         log_value('learning_rate', lr, epoch)
