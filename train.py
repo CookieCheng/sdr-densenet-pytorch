@@ -13,7 +13,8 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import numpy as np
 
-
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import densenet as dn
 
@@ -146,6 +147,13 @@ def main():
         #    num_workers=1)
 
     # Data loading code
+        if args.layers not in [121,161,169,201]:
+            print("Please use 121, 161, 169, or 201 layers fori " +
+                    "ImageNet training.")
+            system.exit(1)
+
+        import densenet_imagenet as dn_im
+
         traindir = os.path.join(args.data, 'train')
         valdir = os.path.join(args.data, 'val')
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -170,7 +178,7 @@ def main():
     
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=2, pin_memory=True, sampler=None)
+            num_workers=2, pin_memory=False, sampler=None)
     
         val_loader = torch.utils.data.DataLoader(
             datasets.ImageFolder(valdir, transforms.Compose([
@@ -180,20 +188,37 @@ def main():
                 normalize,
             ])),
             batch_size=args.batch_size, shuffle=False,
-            num_workers=2, pin_memory=True)
+            num_workers=2, pin_memory=False)
 
 
-        model = dn.DenseNet3(args.layers, 1000, args.growth, reduction=args.reduce,
-                    bottleneck=args.bottleneck, dropRate=droprate,
-                    use_sdr=args.sdr, beta=args.beta, zeta=args.zeta,
-                    zeta_drop = args.zeta_drop)
+#        model = dn.DenseNet3(args.layers, 1000, args.growth, reduction=args.reduce,
+#                    bottleneck=args.bottleneck, dropRate=droprate,
+#                    use_sdr=args.sdr, beta=args.beta, zeta=args.zeta,
+#                    zeta_drop = args.zeta_drop)
 
+        if args.layers == 121:
+            model = dn_im.DenseNet(num_init_features=64, growth_rate=32,
+                                block_config=(6, 12, 24, 16),
+                                drop_rate=droprate)
+        elif args.layers == 161:
+            model = dn_im.DenseNet(num_init_features=64, growth_rate=48,
+                                block_config=(6, 12, 36, 24),
+                                drop_rate=droprate)
+        
+        elif args.layers == 169:
+            model = dn_im.DenseNet(num_init_features=64, growth_rate=32,
+                                block_config=(6, 12, 32, 32),
+                                drop_rate=droprate)
+
+        elif args.layers == 201:
+            model = dn_im.DenseNet(num_init_features=64, growth_rate=32,
+                                block_config=(6, 12, 48, 32),
+                                drop_rate=droprate)
     
     
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
-
 
     # for training on multiple GPUs. 
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
@@ -212,6 +237,8 @@ def main():
         model.zeta_drop = args.zeta_drop
         model.data_swap = []
         model.sds = []
+    else:
+        model.sdr = False
 
     if args.logfiles:
         rundir = "runs/%s"%(args.name)
@@ -246,11 +273,14 @@ def main():
 
     for epoch in range(args.start_epoch, args.epochs):
         
+        tstart = time.time()
+        
         adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch)
-        print("zeta value", str(model.zeta))
+        if model.sdr:
+            print("zeta value", str(model.zeta))
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch)
@@ -279,6 +309,25 @@ def main():
         #for p in model.parameters():
         #    print(p)
 
+        #print out time taken and estimated time to completion
+        tend = time.time()
+        ttotal = tend - tstart
+
+        m, s = divmod(ttotal, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        print("Time for epoch " + str(epoch) +
+                ": %02d:%02d:%02d:%02d" % (d, h, m, s))
+
+        tleft = (args.epochs - epoch - 1) * ttotal
+
+        m, s = divmod(tleft, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        print("Estimated time to completion: %02d:%02d:%02d:%02d" %
+                (d, h, m, s))
+        
+
 
     print('Best accuracy: ', best_prec1)
 
@@ -288,7 +337,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     losses = AverageMeter()
     top1 = AverageMeter()
 
-    if args.tensorboard:
+    if args.tensorboard and model.sdr:
         log_value('zeta', model.zeta, epoch)
 
     # switch to train mode
@@ -326,7 +375,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
                     fname2 = rundir + "/init_sds.npy"
                     np.save(fname2, init_sds)
 
-            elif i == (args.batch_size // 2) - 1 or i == args.batch_size - 1:
+            elif (args.dataset !="ImageNet" and (i==(args.batch_size//2)-1
+                 or i==args.batch_size-1)) or (args.dataset == "ImageNet" 
+                 and (i+1)/250):
 
                 '''
                 split parameters into two blocks, with the earlier
@@ -366,9 +417,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         reset swap list that holds old swap values and sample new
         Wij* values for forward pass
         '''
-        model.data_swap = []
         
         if model.sdr:
+            model.data_swap = []
             for k, p in enumerate(model.parameters()):
                 model.data_swap.append(p.data)
     
@@ -380,8 +431,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         replace sampled Wij* values with original mu values for
         gradient/loss calculations
         '''
-        for p, s  in zip(model.parameters(), model.data_swap):
-            p.data = s
+        if model.sdr:
+            for p, s  in zip(model.parameters(), model.data_swap):
+                p.data = s
     
         loss = criterion(output, target_var)
 
@@ -414,7 +466,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 
     #verbose logging
-    if model.sdr and args.logfiles and (((epoch + 1) % 1 == 0) or (epoch in [0,99])):
+    if model.sdr and args.logfiles and epoch in [0,99]:
         rundir = "runs/%s"%(args.name)
         sampled = [np.asarray(p.data) for p in model.parameters()]
         fname1 = rundir + "/sampled_" + str(epoch) + ".npy"
