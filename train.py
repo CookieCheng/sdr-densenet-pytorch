@@ -20,6 +20,7 @@ import densenet as dn
 
 # used for logging to TensorBoard
 from tensorboard_logger import configure, log_value
+from tensorboardX import SummaryWriter
 
 parser = argparse.ArgumentParser(description='PyTorch DenseNet Training')
 parser.add_argument('--epochs', default=300, type=int,
@@ -78,9 +79,10 @@ parser.set_defaults(augment=True)
 best_prec1 = 0
 
 def main():
-    global args, best_prec1
+    global args, best_prec1, writer
     args = parser.parse_args()
-    if args.tensorboard: configure("runs/%s"%(args.name))
+    #if args.tensorboard: configure("runs/%s"%(args.name))
+    writer = SummaryWriter("runs/%s" % (args.name))
     
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
@@ -271,9 +273,11 @@ def main():
                                 weight_decay=args.weight_decay)
     print("Training...")
 
+    t_elapsed = 0
+
     for epoch in range(args.start_epoch, args.epochs):
         
-        tstart = time.time()
+        t_start = time.time()
         
         adjust_learning_rate(optimizer, epoch)
 
@@ -310,18 +314,25 @@ def main():
         #    print(p)
 
         #print out time taken and estimated time to completion
-        tend = time.time()
-        ttotal = tend - tstart
+        t_end = time.time()
+        t_total = t_end - t_start
 
-        m, s = divmod(ttotal, 60)
+        m, s = divmod(t_total, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         print("Time for epoch " + str(epoch) +
                 ": %02d:%02d:%02d:%02d" % (d, h, m, s))
 
-        tleft = (args.epochs - epoch - 1) * ttotal
+        t_elapsed += t_total
+        m, s = divmod(t_elapsed, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+        print("Time elapsed: %02d:%02d:%02d:%02d\n" %
+                (d, h, m, s))
 
-        m, s = divmod(tleft, 60)
+        t_left = (args.epochs - epoch - 1) * t_total
+
+        m, s = divmod(t_left, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         print("Estimated time to completion: %02d:%02d:%02d:%02d" %
@@ -338,14 +349,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
     top1 = AverageMeter()
 
     if args.tensorboard and model.sdr:
-        log_value('zeta', model.zeta, epoch)
+        #log_value('zeta', model.zeta, epoch)
+        writer.add_scalar('zeta', model.zeta, epoch)
 
     # switch to train mode
     model.train()
 
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
-        target = target.cuda(async=True)
+        target = target.cuda()
+        #target = target.cuda(async=True)
         input = input.cuda()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
@@ -461,8 +474,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       loss=losses, top1=top1))
     # log to TensorBoard
     if args.tensorboard:
-        log_value('train_loss', losses.avg, epoch)
-        log_value('train_acc', top1.avg, epoch)
+        #log_value('train_loss', losses.avg, epoch)
+        writer.add_scalar('train_loss', losses.avg, epoch)
+        #log_value('train_acc', top1.avg, epoch)
+        writer.add_scalar('train_acc', top1.avg, epoch)
 
 
     #verbose logging
@@ -522,8 +537,10 @@ def validate(val_loader, model, criterion, epoch):
     print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
     # log to TensorBoard
     if args.tensorboard:
-        log_value('val_loss', losses.avg, epoch)
-        log_value('val_acc', top1.avg, epoch)
+        #log_value('val_loss', losses.avg, epoch)
+        writer.add_scalar('val_loss', losses.avg, epoch)
+        #log_value('val_acc', top1.avg, epoch)
+        writer.add_scalar('val_acc', top1.avg, epoch)
     return top1.avg
 
 
@@ -565,7 +582,8 @@ def adjust_learning_rate(optimizer, epoch):
     lr = args.lr * (0.1 ** (epoch // (args.epochs // 2) )) * (0.1 ** int(epoch // (args.epochs // (4/3))))
     # log to TensorBoard
     if args.tensorboard:
-        log_value('learning_rate', lr, epoch)
+        #log_value('learning_rate', lr, epoch)
+        writer.add_scalar('learning_rate', lr, epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
