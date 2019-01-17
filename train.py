@@ -71,6 +71,9 @@ parser.add_argument('--logfiles', default=False,
                     help='Write verbose .npy files for weights/SDs', action='store_true')
 parser.add_argument('--data', default='/data4/ImageNet/', type=str,
                     help='location of ImageNet files')
+parser.add_argument('--activations', default=False,
+                    help='optionally save out activations every 10 epochs',
+                    action='store_true')
 
 
 parser.set_defaults(bottleneck=True)
@@ -338,7 +341,13 @@ def main():
         print("Estimated time to completion: %02d:%02d:%02d:%02d" %
                 (d, h, m, s))
         
-
+        if args.activations and (epoch == 0 or (epoch + 1) % 10 == 0):
+            rundir = "runs/%s"%(args.name)
+            #sampled = [np.asarray(p.data) for p in model.parameters()]
+            sampled = np.asarray(model.activations)
+            fname1 = rundir + "/acts_" + str(epoch) + ".npy"
+            np.save(fname1, sampled)
+            
 
     print('Best accuracy: ', best_prec1)
 

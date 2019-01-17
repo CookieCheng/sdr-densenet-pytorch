@@ -115,6 +115,7 @@ class DenseNet3(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.fc = nn.Linear(in_planes, num_classes)
         self.in_planes = in_planes
+        self.activations = []
 
 
         for m in self.modules():
@@ -134,11 +135,27 @@ class DenseNet3(nn.Module):
 
 
     def forward(self, x):
+        self.activations = []
         out = self.conv1(x)
-        out = self.trans1(self.block1(out))
-        out = self.trans2(self.block2(out))
+        self.activations.append(out)
+        out = self.block1(out)
+        self.activations.append(out)
+        out = self.trans1(out)
+        self.activations.append(out)
+        out = self.block2(out)
+        self.activations.append(out)
+        out = self.trans2(out)
+        self.activations.append(out)
         out = self.block3(out)
-        out = self.relu(self.bn1(out))
+        self.activations.append(out)
+        out = self.bn1(out)
+        self.activations.append(out)
+        out = self.relu(out)
+        self.activations.append(out)
         out = F.avg_pool2d(out, 8)
+        self.activations.append(out)
         out = out.view(-1, self.in_planes)
-        return self.fc(out)
+        self.activations.append(out)
+        final = self.fc(out)
+        self.activations.append(final)
+        return final
