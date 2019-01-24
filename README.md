@@ -8,6 +8,9 @@ This repository holds the code for the paper
 
 Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, have a look at the paper [link here].
 
+[Here is a TensorBoard instance](https://boards.aughie.org/board/EchkCFmhLRg4tzFlcff5DUMX4i0/#scalars&_smoothingWeight=0) that shows the results from the paper regarding titration of training epochs and the comparison to dropout (on DN100/CIFAR 100).
+
+And [here is a TensorBoard instance](https://boards.aughie.org/board/5iW79qJJ7ByXqndrOjpJWKhEncs/#scalars&_smoothingWeight=0) comparing DN250-BC with dropout and DN250-BC with SDR, run to 35 epochs.
 
 
 Two types of [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993) (DenseNets) are available:
