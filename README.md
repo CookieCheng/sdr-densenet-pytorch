@@ -11,7 +11,7 @@ Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each we
 
 ## Results
 
-[Here is a TensorBoard instance](https://boards.aughie.org/board/EchkCFmhLRg4tzFlcff5DUMX4i0/#scalars&_smoothingWeight=0) that shows the results from the paper regarding titration of training epochs and the comparison to dropout (on DN100/CIFAR-100).
+[Here is a TensorBoard instance](https://boards.aughie.org/board/EchkCFmhLRg4tzFlcff5DUMX4i0/#scalars&_smoothingWeight=0) that shows the results from the paper regarding titration of training epochs and the comparison to dropout (on DN100/CIFAR-100). We show that SDR can reach (and surpass) dropout's level of accuracy in 35 epochs as opposed to dropout's 100 epochs.
 
 ### Dropout
 
