@@ -6,7 +6,7 @@ This repository holds the code for the paper
 
 [Noah Frazier-Logue](https://www.linkedin.com/in/noah-frazier-logue-1524b796/), [Stephen Jose Hanson](http://nwkpsych.rutgers.edu/~jose/)
 
-Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, have a look at the paper [link here].
+Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, [have a look at the paper](https://arxiv.org/abs/1808.03578).
 
 
 ## Results
@@ -114,7 +114,7 @@ Command:
 ```
 
 
-The code used is based heavily on [Andreas Veit's DenseNet implementation](https://github.com/andreasveit/densenet-pytorch) and [Pytorch's Vision repository](https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py).
+The code used is based heavily on [Andreas Veit's DenseNet implementation](https://github.com/andreasveit/densenet-pytorch) and [PyTorch's Vision repository](https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py).
 
 
 ### Dependencies
