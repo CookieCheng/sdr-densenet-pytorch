@@ -8,9 +8,26 @@ This repository holds the code for the paper
 
 Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, have a look at the paper [link here].
 
-[Here is a TensorBoard instance](https://boards.aughie.org/board/EchkCFmhLRg4tzFlcff5DUMX4i0/#scalars&_smoothingWeight=0) that shows the results from the paper regarding titration of training epochs and the comparison to dropout (on DN100/CIFAR 100).
 
-And [here is a TensorBoard instance](https://boards.aughie.org/board/5iW79qJJ7ByXqndrOjpJWKhEncs/#scalars&_smoothingWeight=0) comparing DN250-BC with dropout and DN250-BC with SDR, run to 35 epochs.
+## Results
+
+[Here is a TensorBoard instance](https://boards.aughie.org/board/EchkCFmhLRg4tzFlcff5DUMX4i0/#scalars&_smoothingWeight=0) that shows the results from the paper regarding titration of training epochs and the comparison to dropout (on DN100/CIFAR-100).
+
+### Dropout
+
+|Model type            |Depth  |C10    |C100   |
+|:---------------------|:------|:------|:------|
+|DenseNet(*k* = 12)    |40     |6.88   |27.88  |
+|DenseNet(*k* = 12)    |100    |----   |24.67  |
+|DenseNet-BC(*k* = 12) |250    |----   |23.91  |
+
+### SDR
+
+|Model type            |Depth  |C10    |C100   |
+|:---------------------|:------|:------|:------|
+|DenseNet(*k* = 12)    |40     |**5.95**   |**25.25**  |
+|DenseNet(*k* = 12)    |100    |----   |**21.72**  |
+|DenseNet-BC(*k* = 12) |250    |----   |**19.79**  |
 
 
 Two types of [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993) (DenseNets) are available:
@@ -21,10 +38,8 @@ Two types of [Densely Connected Convolutional Networks](https://arxiv.org/abs/16
 Each model can be tested on such datasets:
 
 - CIFAR-10
-- CIFAR-10+ (with data augmentation)
 - CIFAR-100
-- CIFAR-100+ (with data augmentation)
-- ImageNet (coming soon)
+- ImageNet (results coming soon)
 
 A number of layers, blocks, growth rate, image normalization and other training params may be changed trough shell or inside the source code.
 
@@ -33,7 +48,7 @@ A number of layers, blocks, growth rate, image normalization and other training 
 Example run:
 
 ```
-    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C100_alpha_0.25_beta_0.02_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.02 --zeta 0.7
+    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C100_alpha_0.25_beta_0.05_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.52 --zeta 0.7
 ```
 
 This run would train a 40-layer DenseNet model on CIFAR-100 and log the progress to TensorBoard. To use dropout, run something like
@@ -59,40 +74,54 @@ List all available options:
     python train.py --help
 ```
 
-Below is the description of DenseNet from the [repository on which this was heavily based](https://github.com/andreasveit/densenet-pytorch), with appropriate modifications:
 
-## DenseNets
-[DenseNets [1]](https://arxiv.org/abs/1608.06993) were introduced in late 2016 after to the discoveries by [[2]](https://arxiv.org/abs/1603.09382) and [[3]](https://arxiv.org/abs/1605.06431) that [residual networks [4]](https://arxiv.org/abs/1512.03385) exhibit extreme parameter redundancy. DenseNets address this shortcoming by reducing the size of the modules and by introducing more connections between layers. In fact, the output of each layer flows directly as input to all subsequent layers of the same feature dimension as illustrated in their Figure 1 (below). This increases the dependency between the layers and thus reduces redundancy.
+## TensorBoard logs and steps to reproduce results
 
-<img src="https://github.com/andreasveit/densenet-pytorch/blob/master/images/Fig1.png?raw=true" width="400">
+### DenseNet-40 on CIFAR-10
 
-The improvements in accuracy per parameter are illustrated in their results on ImageNet (Figure 3). 
+[TensorBoard Log](https://boards.aughie.org/board/LMcrxHaX-ahRA_hCMGjSxE-0huY/#scalars&_smoothingWeight=0)
 
-<img src="https://github.com/andreasveit/densenet-pytorch/blob/master/images/FIg3.png?raw=true" width="400">
-
-## This implementation
-This implementation is quite _memory efficient requiring between 10% and 20% less memory_ compared to the original torch implementation. We optain a final test error of 4.76 % with DenseNet-BC-100-12 (paper reports 4.51 %) and 5.35 % with DenseNet-40-12 (paper reports 5.24 %).
-
-This implementation allows for __all model variants__ in the DenseNet paper, i.e., with and without bottleneck, channel reduction, data augmentation and dropout. 
-
-For simple configuration of the model, this repo uses `argparse` so that key hyperparameters can be easily changed.
-
-Further, this implementation supports [easy checkpointing](https://github.com/andreasveit/densenet-pytorch/blob/master/train.py#L136), keeping track of the best model and [resuming](https://github.com/andreasveit/densenet-pytorch/blob/master/train.py#L103) training from previous checkpoints.
-
-### Tracking training progress with TensorBoard
-To track training progress, this implementation uses [TensorBoard](https://www.tensorflow.org/guide/summaries_and_tensorboard) which offers great ways to track and compare multiple experiments. To track PyTorch experiments in TensorBoard we use [tensorboardX](https://github.com/lanpa/tensorboardX) which can be installed with 
+Command:
 ```
-pip install tensorboardx
+    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C10_alpha_0.25_beta_0.1_zeta_0.999 --tensorboard --sdr --dataset C10 --lr 0.25 --beta 0.1 --zeta 0.999
 ```
-Example training curves for DenseNet-BC-100-12 (dark blue) and DenseNet-40-12 (light blue) for training loss and validation accuracy is shown below. 
 
-![Training Curves](images/Fig4.png)
+### DenseNet-40 on CIFAR-100
+
+[TensorBoard Log](https://boards.aughie.org/board/GNcmrOhQdxgwQXx2rppuQWmPSf0/#scalars&_smoothingWeight=0)
+
+Command:
+```
+    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C100_alpha_0.25_beta_0.05_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.05 --zeta 0.7
+```
+
+### DenseNet-100 on CIFAR-100
+
+[TensorBoard Log](https://boards.aughie.org/board/0L-rz-a7b_L51jg26kPUCX59yJM/#scalars&_smoothingWeight=0)
+
+Command:
+```
+    python train.py --layers 100 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN100_C100_alpha_0.25_beta_0.1_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.1 --zeta 0.7
+```
+
+### DenseNet-250 BC on CIFAR-100
+
+[TensorBoard Log](https://boards.aughie.org/board/FbVdH33aGV50OeW49LgFRDK96D8/#scalars&_smoothingWeight=0)
+
+Command:
+```
+    python train.py --layers 250 --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN250_C100_alpha_0.25_beta_0.03_zeta_0.5 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.03 --zeta 0.5
+```
+
+
+The code used is based heavily on [Andreas Veit's DenseNet implementation](https://github.com/andreasveit/densenet-pytorch) and [Pytorch's Vision repository](https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py).
+
 
 ### Dependencies
 * [PyTorch](http://pytorch.org/)
 * [NumPy](https://www.numpy.org/)
 
-optional:
+#### Optional
 * [tensorboardX](https://github.com/lanpa/tensorboardX)
 
 
@@ -107,14 +136,4 @@ If you use DenseNets in your work, please cite the original paper as:
 }
 ```
 
-If this implementation is useful to you and your project, please also consider to cite or acknowledge this code repository.
-
-### References 
-[1] Huang, G., Liu, Z., Weinberger, K. Q., & van der Maaten, L. (2016). Densely connected convolutional networks. arXiv preprint arXiv:1608.06993.
-
-[2] Huang, G., Sun, Y., Liu, Z., Sedra, D., & Weinberger, K. Q. (2016). Deep networks with stochastic depth. In European Conference on Computer Vision (ECCV '16)
-
-[3] Veit, A., Wilber, M. J., & Belongie, S. (2016). Residual networks behave like ensembles of relatively shallow networks. In Advances in Neural Information Processing Systems (NIPS '16)
-
-[4] He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep residual learning for image recognition. In Conference on Computer Vision and Pattern Recognition (CVPR '16)
 
