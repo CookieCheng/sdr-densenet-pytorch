@@ -91,7 +91,7 @@ Command to replicate test results:
 
 ### DenseNet-40 on CIFAR-100
 
-TensorBoard logs: [Testing](https://boards.aughie.org/board/unQ_RhhiWJgfgVH-RC9RBWVZh68/#scalars&_smoothingWeight=0) | [Training](https://boards.aughie.org/board/GNcmrOhQdxgwQXx2rppuQWmPSf0/#scalars&_smoothingWeight=0))
+TensorBoard logs: [Testing](https://boards.aughie.org/board/unQ_RhhiWJgfgVH-RC9RBWVZh68/#scalars&_smoothingWeight=0) | [Training](https://boards.aughie.org/board/GNcmrOhQdxgwQXx2rppuQWmPSf0/#scalars&_smoothingWeight=0)
 
 Command to replicate test results:
 ```
