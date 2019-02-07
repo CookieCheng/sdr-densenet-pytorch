@@ -2,7 +2,7 @@
 
 This repository holds the code for the paper 
 
-'Dropout is a special case of the stochastic delta rule: faster and more accurate deep learning' (submitted to ICML; on [arXiv](https://arxiv.org/abs/1808.03578))
+'Dropout is a special case of the stochastic delta rule: faster and more accurate deep learning' (submitted to ICML; on [arXiv](https://arxiv.org/abs/1808.03578) to be announced 11 Feb.)
 
 [Noah Frazier-Logue](https://www.linkedin.com/in/noah-frazier-logue-1524b796/), [Stephen José Hanson](http://nwkpsych.rutgers.edu/~jose/)
 
