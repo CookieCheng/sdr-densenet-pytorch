@@ -25,7 +25,7 @@ Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each we
 
 |Model type            |Depth  |C10    |C100   |
 |:---------------------|:------|:------|:------|
-|DenseNet(*k* = 12)    |40     |**5.95**   |**25.25**  |
+|DenseNet(*k* = 12)    |40     |**5.95**   |**24.58**  |
 |DenseNet(*k* = 12)    |100    |----   |**21.72**  |
 |DenseNet-BC(*k* = 12) |250    |----   |**19.79**  |
 
@@ -77,41 +77,46 @@ List all available options:
 
 ## TensorBoard logs and steps to reproduce results
 
+#### Note: 
+Emphasis below has been placed on test results, but training/encoding-optimized TensorBoard logs will be supplied where available. These will be updated as more results are generated.
+
 ### DenseNet-40 on CIFAR-10
 
-[TensorBoard Log](https://boards.aughie.org/board/LMcrxHaX-ahRA_hCMGjSxE-0huY/#scalars&_smoothingWeight=0)
+TensorBoard logs: [Testing | Training](https://boards.aughie.org/board/LMcrxHaX-ahRA_hCMGjSxE-0huY/#scalars&_smoothingWeight=0)
 
-Command:
+Command to replicate test results:
 ```
     python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C10_alpha_0.25_beta_0.1_zeta_0.999 --tensorboard --sdr --dataset C10 --lr 0.25 --beta 0.1 --zeta 0.999
 ```
 
 ### DenseNet-40 on CIFAR-100
 
-[TensorBoard Log](https://boards.aughie.org/board/GNcmrOhQdxgwQXx2rppuQWmPSf0/#scalars&_smoothingWeight=0)
+TensorBoard logs: [Testing](https://boards.aughie.org/board/unQ_RhhiWJgfgVH-RC9RBWVZh68/#scalars&_smoothingWeight=0) | [Training](https://boards.aughie.org/board/GNcmrOhQdxgwQXx2rppuQWmPSf0/#scalars&_smoothingWeight=0))
 
-Command:
+Command to replicate test results:
 ```
-    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C100_alpha_0.25_beta_0.05_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.05 --zeta 0.7
+    python train.py --layers 40 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN40_C100_alpha_0.3_beta_0.2_zeta_0.9999 --tensorboard --sdr --dataset C100 --lr 0.3 --beta 0.2 --zeta 0.9999
 ```
 
 ### DenseNet-100 on CIFAR-100
 
-[TensorBoard Log](https://boards.aughie.org/board/0L-rz-a7b_L51jg26kPUCX59yJM/#scalars&_smoothingWeight=0)
+TensorBoard logs: [Testing | Training](https://boards.aughie.org/board/0L-rz-a7b_L51jg26kPUCX59yJM/#scalars&_smoothingWeight=0)
 
-Command:
+Command to replicate test results:
 ```
     python train.py --layers 100 --no-bottleneck --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN100_C100_alpha_0.25_beta_0.1_zeta_0.7 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.1 --zeta 0.7
 ```
 
 ### DenseNet-250 BC on CIFAR-100
 
-[TensorBoard Log](https://boards.aughie.org/board/FbVdH33aGV50OeW49LgFRDK96D8/#scalars&_smoothingWeight=0)
+TensorBoard logs: [Testing | Training](https://boards.aughie.org/board/FbVdH33aGV50OeW49LgFRDK96D8/#scalars&_smoothingWeight=0)
 
-Command:
+Command to replicate test results:
 ```
     python train.py --layers 250 --growth 12 --reduce 1.0 -b 100 --epochs 100 --name DN250_C100_alpha_0.25_beta_0.03_zeta_0.5 --tensorboard --sdr --dataset C100 --lr 0.25 --beta 0.03 --zeta 0.5
 ```
+
+ImageNet results will be generated and posted as soon as our institution finishes setting up our account with AWS.
 
 
 The code used is based heavily on [Andreas Veit's DenseNet implementation](https://github.com/andreasveit/densenet-pytorch) and [PyTorch's Vision repository](https://github.com/pytorch/vision/blob/master/torchvision/models/densenet.py).
