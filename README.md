@@ -18,7 +18,7 @@ Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each we
 |Model type            |Depth  |C10    |C100   |
 |:---------------------|:------|:------|:------|
 |DenseNet(*k* = 12)    |40     |6.88   |27.88  |
-|DenseNet(*k* = 12)    |100    |----   |24.67  |
+|DenseNet(*k* = 12)    |100    |----   |24.41  |
 |DenseNet-BC(*k* = 12) |250    |----   |23.91  |
 
 ### SDR
@@ -26,7 +26,7 @@ Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each we
 |Model type            |Depth  |C10    |C100   |
 |:---------------------|:------|:------|:------|
 |DenseNet(*k* = 12)    |40     |**5.95**   |**24.58**  |
-|DenseNet(*k* = 12)    |100    |----   |**21.72**  |
+|DenseNet(*k* = 12)    |100    |----   |**21.36**  |
 |DenseNet-BC(*k* = 12) |250    |----   |**19.79**  |
 
 
