@@ -2,11 +2,11 @@
 
 This repository holds the code for the paper 
 
-['Dropout is a special case of the stochastic delta rule: faster and more accurate deep learning'](https://github.com/noahfl/sdr-densenet-pytorch/blob/master/icml_2019.pdf) (submitted to ICML; on [arXiv](https://arxiv.org/abs/1808.03578) to be announced 11 Feb.)
+['Dropout is a special case of the stochastic delta rule: faster and more accurate deep learning'](https://arxiv.org/abs/1808.03578) (submitted to ICML; on [arXiv](https://arxiv.org/abs/1808.03578))
 
 [Noah Frazier-Logue](https://www.linkedin.com/in/noah-frazier-logue-1524b796/), [Stephen José Hanson](http://nwkpsych.rutgers.edu/~jose/)
 
-Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, [have a look at the paper](https://github.com/noahfl/sdr-densenet-pytorch/blob/master/icml_2019.pdf).
+Stochastic Delta Rule (SDR) is a weight update mechanism that assigns to each weight a standard deviation that changes as a function of the gradients every training iteration. At the beginning of each training iteration, the weights are re-initialized using a normal distribution bound by their standard deviations. Over the course of the training iterations and epochs, the standard deviations converge towards zero as the network becomes more sure of what the values of each of the weights should be. For a more detailed description of the method and its properties, [have a look at the paper](https://arxiv.org/abs/1808.03578).
 
 
 ## Results
