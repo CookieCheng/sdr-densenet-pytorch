@@ -19,24 +19,24 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 import densenet as dn
 
 # used for logging to TensorBoard
-from tensorboard_logger import configure, log_value
+#from tensorboard_logger import configure, log_value
 from tensorboardX import SummaryWriter
 
 parser = argparse.ArgumentParser(description='PyTorch DenseNet Training')
-parser.add_argument('--epochs', default=300, type=int,
+parser.add_argument('--epochs', default=100, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
-                    help='mini-batch size (default: 64)')
+parser.add_argument('-b', '--batch-size', default=100, type=int,
+                    help='mini-batch size (default: 100)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     help='weight decay (default: 1e-4)')
-parser.add_argument('--print-freq', '-p', default=10, type=int,
+parser.add_argument('--print-freq', '-p', default=100, type=int,
                     help='print frequency (default: 10)')
-parser.add_argument('--layers', default=100, type=int,
+parser.add_argument('--layers', default=40, type=int,
                     help='total number of layers (default: 100)')
 parser.add_argument('--growth', default=12, type=int,
                     help='number of new channels per layer (default: 12)')
@@ -44,7 +44,7 @@ parser.add_argument('--droprate', default=0, type=float,
                     help='dropout probability (default: 0.0)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
-parser.add_argument('--reduce', default=0.5, type=float,
+parser.add_argument('--reduce', default=1, type=float,
                     help='compression rate in transition stage (default: 0.5)')
 parser.add_argument('--no-bottleneck', dest='bottleneck', action='store_false',
                     help='To not use bottleneck block')
@@ -54,16 +54,16 @@ parser.add_argument('--name', default='DenseNet_BC_100_12', type=str,
                     help='name of experiment')
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
-parser.add_argument('--sdr', default=False,
+parser.add_argument('--sdr', default=True,
                     help='Use Stochastic Delta Rule', action='store_true')
-parser.add_argument('--beta', default=5, type=float,
+parser.add_argument('--beta', default=0.05, type=float,
                     help='SDR beta value (default: 5)')
-parser.add_argument('--zeta', default=0.99, type=float,
+parser.add_argument('--zeta', default=0.7, type=float,
                     help='SDR zeta value (default: 0.99)')
 parser.add_argument('--zeta-drop', default=1, type=int,
                     help='control rate of zeta drop (default 1)')
 parser.add_argument('--dataset', '-ds', type=str, choices=['C10', 'C100', 'ImageNet'],
-                    default='C10',
+                    default='C100',
                     help='What dataset should be used')
 parser.add_argument('--parallel', default=False,
                     help='Use parallel GPUs', action='store_true')
@@ -71,10 +71,6 @@ parser.add_argument('--logfiles', default=False,
                     help='Write verbose .npy files for weights/SDs', action='store_true')
 parser.add_argument('--data', default='/data4/ImageNet/', type=str,
                     help='location of ImageNet files')
-parser.add_argument('--activations', default=False,
-                    help='optionally save out activations as \
-                    .npy every 10 epochs',
-                    action='store_true')
 
 
 parser.set_defaults(bottleneck=True)
@@ -82,12 +78,24 @@ parser.set_defaults(augment=True)
 
 best_prec1 = 0
 
-def main():
+def main(beta, zeta):
+#def main():
+    #lr = space["lr"]
+    #beta = space["beta"]
+    #zeta = space["zeta"]
     global args, best_prec1, writer
     args = parser.parse_args()
+    args.tensorboard = True 
     #if args.tensorboard: configure("runs/%s"%(args.name))
-    writer = SummaryWriter("runs/%s" % (args.name))
     
+    args.beta = beta
+    args.zeta = zeta
+
+    args.name = "DN%s_%s_alpha_%02f_beta_%02f_zeta_%02f_hyper_fixed"%(args.layers, args.dataset, args.lr, args.beta, args.zeta)
+    print(args.name)
+    if args.tensorboard:
+        writer = SummaryWriter("runs/%s" % (args.name))
+    args.bottleneck = False 
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
@@ -342,15 +350,10 @@ def main():
         print("Estimated time to completion: %02d:%02d:%02d:%02d" %
                 (d, h, m, s))
         
-        if args.activations and (epoch == 0 or (epoch + 1) % 10 == 0):
-            rundir = "runs/%s"%(args.name)
-            sampled = [np.asarray(p.cpu().numpy()) for p in model.activations]
-            sampled = np.asarray(model.activations)
-            fname1 = rundir + "/acts_" + str(epoch) + ".npy"
-            np.save(fname1, sampled)
-            
+
 
     print('Best accuracy: ', best_prec1)
+    return prec1
 
 def train(train_loader, model, criterion, optimizer, epoch):
     """Train for one epoch on the training set"""
@@ -400,7 +403,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
             elif (args.dataset !="ImageNet" and (i==(args.batch_size//2)-1
                  or i==args.batch_size-1)) or (args.dataset == "ImageNet" 
-                 and (i+1)/250):
+                 and ((i+1)/250) == 0):
 
                 '''
                 split parameters into two blocks, with the earlier
@@ -434,7 +437,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
                     #update the standard deviations
                     model.sds[k] = zeta_ * (torch.abs(model.beta *
-                        p.grad) + model.sds[k].cuda())
+                        p.grad) + model.sds[k])#.cuda())
 
         '''
         reset swap list that holds old swap values and sample new
